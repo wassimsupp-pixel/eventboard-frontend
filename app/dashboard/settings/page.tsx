@@ -35,6 +35,14 @@ export default function SettingsPage() {
   const [keyLoading, setKeyLoading] = useState(false);
   const [providerLoading, setProviderLoading] = useState(false);
 
+  // API Key Unlock & security code
+  const [unlockCode, setUnlockCode] = useState('');
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [unlockLoading, setUnlockLoading] = useState(false);
+  const [currentSecurityCode, setCurrentSecurityCode] = useState('');
+  const [newSecurityCode, setNewSecurityCode] = useState('');
+  const [securityCodeLoading, setSecurityCodeLoading] = useState(false);
+
   // Preferences
   const [dateFormat, setDateFormat] = useState('DD/MM/YYYY');
   const [prefLoading, setPrefLoading] = useState(false);
@@ -77,7 +85,7 @@ export default function SettingsPage() {
     }
     setKeyLoading(true);
     try {
-      await settingsAPI.updateApiKey(apiKey, selectedProvider);
+      await settingsAPI.updateApiKey(apiKey, selectedProvider, unlockCode);
       toast.success(`Clé API ${isGemini ? 'Gemini' : 'Claude'} sauvegardée et activée !`);
       setApiKey('');
       setSettings((s) => s ? {
@@ -91,6 +99,41 @@ export default function SettingsPage() {
       toast.error(e?.response?.data?.detail || 'Erreur');
     } finally {
       setKeyLoading(false);
+    }
+  };
+
+  const handleUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUnlockLoading(true);
+    try {
+      await settingsAPI.verifyUnlockCode(unlockCode);
+      setIsUnlocked(true);
+      toast.success('Modification des clés API autorisée !');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'Code de sécurité incorrect');
+      setIsUnlocked(false);
+    } finally {
+      setUnlockLoading(false);
+    }
+  };
+
+  const handleSecurityCodeChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newSecurityCode.length < 4) {
+      toast.error('Le code doit faire au moins 4 caractères');
+      return;
+    }
+    setSecurityCodeLoading(true);
+    try {
+      await settingsAPI.changeUnlockCode(currentSecurityCode, newSecurityCode);
+      toast.success('Code de sécurité mis à jour !');
+      setCurrentSecurityCode('');
+      setNewSecurityCode('');
+      setUnlockCode(newSecurityCode);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'Erreur lors du changement du code');
+    } finally {
+      setSecurityCodeLoading(false);
     }
   };
 
@@ -156,108 +199,190 @@ export default function SettingsPage() {
           Choisissez le moteur IA qui sera utilisé pour analyser vos données événementielles.
         </p>
 
-        {/* Provider cards */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Claude card */}
-          <button
-            type="button"
-            onClick={() => setSelectedProvider('claude')}
-            className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 ${
-              selectedProvider === 'claude'
-                ? 'border-accent-purple bg-accent-purple/10'
-                : 'border-border-default hover:border-border-hover bg-bg-secondary'
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-orange-500/20 flex items-center justify-center text-orange-400 text-sm font-bold">◆</div>
-              <span className="font-semibold text-text-primary text-sm">Claude</span>
-              {settings?.has_claude_key && (
-                <CheckCircle2 className="w-3.5 h-3.5 text-status-success ml-auto" />
-              )}
+        {!isUnlocked ? (
+          <form onSubmit={handleUnlock} className="space-y-3 pt-2">
+            <div className="bg-bg-secondary border border-border-default rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2 text-xs text-text-secondary">
+                <Lock className="w-3.5 h-3.5 text-accent-purple" />
+                <span>Entrez le code de sécurité pour déverrouiller l&apos;accès aux clés API.</span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  className="input text-sm flex-1 font-mono"
+                  placeholder="Code de sécurité (ex: 1234)"
+                  value={unlockCode}
+                  onChange={(e) => setUnlockCode(e.target.value)}
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={unlockLoading || !unlockCode}
+                  className="btn-primary py-2 px-4 text-sm"
+                >
+                  {unlockLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Déverrouiller'}
+                </button>
+              </div>
             </div>
-            <p className="text-text-muted text-xs">Anthropic · claude-3.5-sonnet</p>
-            {settings?.ai_provider === 'claude' && (
-              <span className="absolute top-2 right-2 text-[10px] bg-accent-purple/20 text-accent-purple px-1.5 py-0.5 rounded-full">ACTIF</span>
-            )}
-          </button>
+          </form>
+        ) : (
+          <>
+            {/* Provider cards */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Claude card */}
+              <button
+                type="button"
+                onClick={() => setSelectedProvider('claude')}
+                className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+                  selectedProvider === 'claude'
+                    ? 'border-accent-purple bg-accent-purple/10'
+                    : 'border-border-default hover:border-border-hover bg-bg-secondary'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-orange-500/20 flex items-center justify-center text-orange-400 text-sm font-bold">◆</div>
+                  <span className="font-semibold text-text-primary text-sm">Claude</span>
+                  {settings?.has_claude_key && (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-status-success ml-auto" />
+                  )}
+                </div>
+                <p className="text-text-muted text-xs">Anthropic · claude-3.5-sonnet</p>
+                {settings?.ai_provider === 'claude' && (
+                  <span className="absolute top-2 right-2 text-[10px] bg-accent-purple/20 text-accent-purple px-1.5 py-0.5 rounded-full">ACTIF</span>
+                )}
+              </button>
 
-          {/* Gemini card */}
-          <button
-            type="button"
-            onClick={() => setSelectedProvider('gemini')}
-            className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 ${
-              selectedProvider === 'gemini'
-                ? 'border-accent-blue bg-accent-blue/10'
-                : 'border-border-default hover:border-border-hover bg-bg-secondary'
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 text-sm font-bold">✦</div>
-              <span className="font-semibold text-text-primary text-sm">Gemini</span>
-              {settings?.has_gemini_key && (
-                <CheckCircle2 className="w-3.5 h-3.5 text-status-success ml-auto" />
-              )}
-            </div>
-            <p className="text-text-muted text-xs">Google · gemini-1.5-flash</p>
-            {settings?.ai_provider === 'gemini' && (
-              <span className="absolute top-2 right-2 text-[10px] bg-accent-blue/20 text-accent-blue px-1.5 py-0.5 rounded-full">ACTIF</span>
-            )}
-          </button>
-        </div>
-
-        {/* Switch provider button (only if key already saved) */}
-        {settings && selectedProvider !== settings.ai_provider && (
-          ((selectedProvider === 'claude' && settings.has_claude_key) ||
-           (selectedProvider === 'gemini' && settings.has_gemini_key)) && (
-            <button
-              onClick={() => handleSwitchProvider(selectedProvider)}
-              disabled={providerLoading}
-              className="btn-secondary w-full"
-            >
-              {providerLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-              Activer {selectedProvider === 'gemini' ? 'Gemini' : 'Claude'}
-            </button>
-          )
-        )}
-
-        {/* API key form */}
-        <div className="border-t border-border-default pt-4 space-y-3">
-          <label className="label">
-            {isGeminiSelected
-              ? 'Clé API Google Gemini'
-              : 'Clé API Anthropic Claude'}
-          </label>
-
-          {/* Status badge */}
-          {settings && (
-            isGeminiSelected
-              ? (settings.has_gemini_key
-                ? <div className="flex items-center gap-1.5 text-status-success text-xs"><CheckCircle2 className="w-3.5 h-3.5" />Clé Gemini configurée</div>
-                : <div className="flex items-center gap-2 bg-status-warning/10 border border-status-warning/30 rounded-lg px-3 py-2 text-status-warning text-xs"><AlertTriangle className="w-3 h-3" />Aucune clé Gemini — ajoutez-en une ci-dessous</div>)
-              : (settings.has_claude_key
-                ? <div className="flex items-center gap-1.5 text-status-success text-xs"><CheckCircle2 className="w-3.5 h-3.5" />Clé Claude configurée</div>
-                : <div className="flex items-center gap-2 bg-status-warning/10 border border-status-warning/30 rounded-lg px-3 py-2 text-status-warning text-xs"><AlertTriangle className="w-3 h-3" />Aucune clé Claude — ajoutez-en une ci-dessous</div>)
-          )}
-
-          <form onSubmit={handleApiKey} className="space-y-3">
-            <div className="relative">
-              <input
-                type={showKey ? 'text' : 'password'}
-                className="input pr-10 font-mono text-sm"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={isGeminiSelected ? 'AIzaSy...' : 'sk-ant-api03-...'}
-              />
-              <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted">
-                {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {/* Gemini card */}
+              <button
+                type="button"
+                onClick={() => setSelectedProvider('gemini')}
+                className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+                  selectedProvider === 'gemini'
+                    ? 'border-accent-blue bg-accent-blue/10'
+                    : 'border-border-default hover:border-border-hover bg-bg-secondary'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 text-sm font-bold">✦</div>
+                  <span className="font-semibold text-text-primary text-sm">Gemini</span>
+                  {settings?.has_gemini_key && (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-status-success ml-auto" />
+                  )}
+                </div>
+                <p className="text-text-muted text-xs">Google · gemini-2.0-flash-lite</p>
+                {settings?.ai_provider === 'gemini' && (
+                  <span className="absolute top-2 right-2 text-[10px] bg-accent-blue/20 text-accent-blue px-1.5 py-0.5 rounded-full">ACTIF</span>
+                )}
               </button>
             </div>
-            <button type="submit" disabled={keyLoading || !apiKey} className={isGeminiSelected ? 'btn-primary' : 'btn-purple'}>
-              {keyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              Sauvegarder &amp; activer {isGeminiSelected ? 'Gemini' : 'Claude'}
-            </button>
-          </form>
-        </div>
+
+            {/* Switch provider button (only if key already saved) */}
+            {settings && selectedProvider !== settings.ai_provider && (
+              ((selectedProvider === 'claude' && settings.has_claude_key) ||
+               (selectedProvider === 'gemini' && settings.has_gemini_key)) && (
+                <button
+                  onClick={() => handleSwitchProvider(selectedProvider)}
+                  disabled={providerLoading}
+                  className="btn-secondary w-full"
+                >
+                  {providerLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  Activer {selectedProvider === 'gemini' ? 'Gemini' : 'Claude'}
+                </button>
+              )
+            )}
+
+            {/* API key form */}
+            <div className="border-t border-border-default pt-4 space-y-3">
+              <label className="label">
+                {isGeminiSelected
+                  ? 'Clé API Google Gemini'
+                  : 'Clé API Anthropic Claude'}
+              </label>
+
+              {/* Status badge */}
+              {settings && (
+                isGeminiSelected
+                  ? (settings.has_gemini_key
+                    ? <div className="flex items-center gap-1.5 text-status-success text-xs"><CheckCircle2 className="w-3.5 h-3.5" />Clé Gemini configurée</div>
+                    : <div className="flex items-center gap-2 bg-status-warning/10 border border-status-warning/30 rounded-lg px-3 py-2 text-status-warning text-xs"><AlertTriangle className="w-3 h-3" />Aucune clé Gemini — ajoutez-en une ci-dessous</div>)
+                  : (settings.has_claude_key
+                    ? <div className="flex items-center gap-1.5 text-status-success text-xs"><CheckCircle2 className="w-3.5 h-3.5" />Clé Claude configurée</div>
+                    : <div className="flex items-center gap-2 bg-status-warning/10 border border-status-warning/30 rounded-lg px-3 py-2 text-status-warning text-xs"><AlertTriangle className="w-3 h-3" />Aucune clé Claude — ajoutez-en une ci-dessous</div>)
+              )}
+
+              <form onSubmit={handleApiKey} className="space-y-3">
+                <div className="relative">
+                  <input
+                    type={showKey ? 'text' : 'password'}
+                    className="input pr-10 font-mono text-sm"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={isGeminiSelected ? 'AIzaSy...' : 'sk-ant-api03-...'}
+                  />
+                  <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted">
+                    {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <button type="submit" disabled={keyLoading || !apiKey} className={isGeminiSelected ? 'btn-primary' : 'btn-purple'}>
+                  {keyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  Sauvegarder &amp; activer {isGeminiSelected ? 'Gemini' : 'Claude'}
+                </button>
+              </form>
+            </div>
+
+            {/* Change security code form */}
+            <div className="border-t border-border-default pt-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-accent-purple" />
+                <label className="label font-semibold">Changer le code de sécurité</label>
+              </div>
+              <form onSubmit={handleSecurityCodeChange} className="grid grid-cols-2 gap-3">
+                <input
+                  type="password"
+                  className="input text-sm font-mono"
+                  placeholder="Code actuel"
+                  value={currentSecurityCode}
+                  onChange={(e) => setCurrentSecurityCode(e.target.value)}
+                  required
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    className="input text-sm flex-1 font-mono"
+                    placeholder="Nouveau code"
+                    value={newSecurityCode}
+                    onChange={(e) => setNewSecurityCode(e.target.value)}
+                    required
+                    minLength={4}
+                  />
+                  <button
+                    type="submit"
+                    disabled={securityCodeLoading}
+                    className="btn-secondary py-2 px-3 text-xs"
+                  >
+                    {securityCodeLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Mettre à jour'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Lock back button */}
+            <div className="flex justify-end pt-2 border-t border-border-default/50">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsUnlocked(false);
+                  setUnlockCode('');
+                  setCurrentSecurityCode('');
+                  setNewSecurityCode('');
+                }}
+                className="text-xs text-text-muted hover:text-text-primary flex items-center gap-1 transition-colors"
+              >
+                <Lock className="w-3 h-3" /> Re-verrouiller l&apos;accès
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ─── Password ───────────────────────────────────────────────────────── */}
