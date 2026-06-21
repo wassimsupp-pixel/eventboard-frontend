@@ -99,7 +99,7 @@ export default function DashboardPage() {
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
         ) : (
@@ -141,7 +141,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { href: '/dashboard/files', icon: FileSpreadsheet, label: 'Importer des fichiers', color: 'text-accent-blue' },
           { href: '/dashboard/analysis', icon: Sparkles, label: 'Lancer une analyse IA', color: 'text-accent-purple' },
@@ -161,9 +161,9 @@ export default function DashboardPage() {
 
       {/* Charts row */}
       {!loading && stats && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Monthly histogram */}
-          <div className="card p-5 col-span-2">
+          <div className="card p-5 lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-text-primary text-sm">Événements par mois</h3>
               <span className="badge-blue">{stats.by_month.length} mois</span>

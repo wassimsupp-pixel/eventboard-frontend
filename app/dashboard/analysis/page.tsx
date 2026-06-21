@@ -175,9 +175,9 @@ export default function AnalysisPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main analysis result */}
-        <div className="col-span-3 space-y-4">
+        <div className="col-span-1 lg:col-span-3 space-y-4">
           {loading && (
             <div className="card p-8 text-center text-text-muted">
               <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-accent-purple" />
@@ -209,9 +209,9 @@ export default function AnalysisPage() {
               </div>
 
               {/* Sections */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {SECTION_CONFIG.slice(0, 1).map((cfg) => (
-                  <div key={cfg.key} className="col-span-2">
+                  <div key={cfg.key} className="col-span-1 md:col-span-2">
                     <AnalysisSection config={cfg} result={analysis.result} />
                   </div>
                 ))}
@@ -219,7 +219,7 @@ export default function AnalysisPage() {
                   <AnalysisSection key={cfg.key} config={cfg} result={analysis.result} />
                 ))}
                 {SECTION_CONFIG.slice(5).map((cfg) => (
-                  <div key={cfg.key} className="col-span-2">
+                  <div key={cfg.key} className="col-span-1 md:col-span-2">
                     <AnalysisSection config={cfg} result={analysis.result} />
                   </div>
                 ))}

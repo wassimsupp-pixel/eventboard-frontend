@@ -92,7 +92,7 @@ function MappingModal({
           )}
 
           {/* Mapping fields */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {Object.entries(FIELD_LABELS).map(([field, label]) => (
               <div key={field}>
                 <label className="label">{label}</label>

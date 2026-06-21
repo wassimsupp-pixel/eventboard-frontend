@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   LayoutDashboard, FolderOpen, BarChart3, Download, Settings,
-  ChevronRight
+  ChevronRight, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,11 @@ const navItems = [
   { href: '/dashboard/settings', label: 'Paramètres', icon: Settings },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+export default function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
 
   const isActive = (href: string, exact?: boolean) => {
@@ -25,9 +29,9 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-bg-sidebar border-r border-border-default flex flex-col h-full">
+    <aside className="w-64 bg-bg-sidebar border-r border-border-default flex flex-col h-full relative">
       {/* Logo */}
-      <div className="h-16 flex items-center px-5 border-b border-border-default">
+      <div className="h-16 flex items-center justify-between px-5 border-b border-border-default">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 bg-gradient-to-br from-accent-blue to-accent-purple rounded-lg flex items-center justify-center shadow-glow">
             <span className="text-white font-bold text-xs">EB</span>
@@ -36,6 +40,15 @@ export default function Sidebar() {
             Event<span className="text-accent-blue">Board</span>
           </span>
         </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="btn-ghost p-1.5 lg:hidden -mr-1"
+            title="Fermer le menu"
+          >
+            <X className="w-4 h-4 text-text-muted" />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
