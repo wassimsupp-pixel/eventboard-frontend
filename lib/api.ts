@@ -92,8 +92,10 @@ export const settingsAPI = {
   get: () => api.get('/api/settings'),
   changePassword: (current_password: string, new_password: string) =>
     api.post('/api/settings/password', { current_password, new_password }),
-  updateApiKey: (api_key: string) =>
-    api.post('/api/settings/api-key', { api_key }),
+  updateApiKey: (api_key: string, provider: 'claude' | 'gemini' = 'claude') =>
+    api.post('/api/settings/api-key', { api_key, provider }),
+  setAiProvider: (provider: 'claude' | 'gemini') =>
+    api.post('/api/settings/ai-provider', null, { params: { provider } }),
   updatePreferences: (date_format: string, language: string) =>
     api.post('/api/settings/preferences', null, {
       params: { date_format, language },

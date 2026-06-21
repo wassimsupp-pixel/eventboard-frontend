@@ -3,13 +3,23 @@
 import { useState, useEffect } from 'react';
 import {
   Lock, Key, Globe, Trash2, Eye, EyeOff,
-  CheckCircle2, AlertTriangle, Loader2, ShieldCheck
+  CheckCircle2, AlertTriangle, Loader2, ShieldCheck,
+  Sparkles, Bot, Zap
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { settingsAPI, dataAPI } from '@/lib/api';
 
+type Settings = {
+  has_api_key: boolean;
+  date_format: string;
+  language: string;
+  ai_provider: string;
+  has_gemini_key: boolean;
+  has_claude_key: boolean;
+};
+
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<{ has_api_key: boolean; date_format: string; language: string } | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
 
   // Password change
   const [currentPw, setCurrentPw] = useState('');
@@ -18,10 +28,12 @@ export default function SettingsPage() {
   const [showPw, setShowPw] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
 
-  // API key
+  // AI Provider
+  const [selectedProvider, setSelectedProvider] = useState<'claude' | 'gemini'>('claude');
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [keyLoading, setKeyLoading] = useState(false);
+  const [providerLoading, setProviderLoading] = useState(false);
 
   // Preferences
   const [dateFormat, setDateFormat] = useState('DD/MM/YYYY');
@@ -29,8 +41,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     settingsAPI.get().then((res) => {
-      setSettings(res.data);
-      setDateFormat(res.data.date_format);
+      const data: Settings = res.data;
+      setSettings(data);
+      setDateFormat(data.date_format);
+      setSelectedProvider((data.ai_provider as 'claude' | 'gemini') || 'claude');
     }).catch(() => { });
   }, []);
 
@@ -52,17 +66,45 @@ export default function SettingsPage() {
 
   const handleApiKey = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!apiKey.startsWith('sk-ant-')) { toast.error('Clé API invalide'); return; }
+    const isGemini = selectedProvider === 'gemini';
+    if (isGemini && !apiKey.startsWith('AIza')) {
+      toast.error('Clé API Gemini invalide (doit commencer par AIza)');
+      return;
+    }
+    if (!isGemini && !apiKey.startsWith('sk-ant-')) {
+      toast.error('Clé API Claude invalide (doit commencer par sk-ant-)');
+      return;
+    }
     setKeyLoading(true);
     try {
-      await settingsAPI.updateApiKey(apiKey);
-      toast.success('Clé API sauvegardée !');
+      await settingsAPI.updateApiKey(apiKey, selectedProvider);
+      toast.success(`Clé API ${isGemini ? 'Gemini' : 'Claude'} sauvegardée et activée !`);
       setApiKey('');
-      setSettings((s) => s ? { ...s, has_api_key: true } : s);
+      setSettings((s) => s ? {
+        ...s,
+        has_api_key: true,
+        ai_provider: selectedProvider,
+        has_gemini_key: isGemini ? true : s.has_gemini_key,
+        has_claude_key: !isGemini ? true : s.has_claude_key,
+      } : s);
     } catch (e: any) {
       toast.error(e?.response?.data?.detail || 'Erreur');
     } finally {
       setKeyLoading(false);
+    }
+  };
+
+  const handleSwitchProvider = async (provider: 'claude' | 'gemini') => {
+    if (provider === settings?.ai_provider) return;
+    setProviderLoading(true);
+    try {
+      await settingsAPI.setAiProvider(provider);
+      setSettings((s) => s ? { ...s, ai_provider: provider } : s);
+      toast.success(`Provider IA changé vers ${provider === 'gemini' ? 'Gemini' : 'Claude'} !`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'Erreur');
+    } finally {
+      setProviderLoading(false);
     }
   };
 
@@ -88,6 +130,8 @@ export default function SettingsPage() {
     }
   };
 
+  const isGeminiSelected = selectedProvider === 'gemini';
+
   return (
     <div className="space-y-6 animate-fade-in max-w-2xl">
       <div>
@@ -95,13 +139,134 @@ export default function SettingsPage() {
         <p className="section-subtitle">Configuration de votre compte EventBoard</p>
       </div>
 
-      {/* Password */}
+      {/* ─── AI Provider Selector ─────────────────────────────────────────── */}
+      <div className="card p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-1">
+          <Bot className="w-4 h-4 text-accent-purple" />
+          <h3 className="font-semibold text-text-primary">Moteur d&apos;IA</h3>
+          {settings && (
+            <span className="ml-auto text-xs text-text-muted">
+              Actif : <span className="text-accent-purple font-medium">
+                {settings.ai_provider === 'gemini' ? '✦ Gemini' : '◆ Claude'}
+              </span>
+            </span>
+          )}
+        </div>
+        <p className="text-text-secondary text-xs">
+          Choisissez le moteur IA qui sera utilisé pour analyser vos données événementielles.
+        </p>
+
+        {/* Provider cards */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Claude card */}
+          <button
+            type="button"
+            onClick={() => setSelectedProvider('claude')}
+            className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+              selectedProvider === 'claude'
+                ? 'border-accent-purple bg-accent-purple/10'
+                : 'border-border-default hover:border-border-hover bg-bg-secondary'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-lg bg-orange-500/20 flex items-center justify-center text-orange-400 text-sm font-bold">◆</div>
+              <span className="font-semibold text-text-primary text-sm">Claude</span>
+              {settings?.has_claude_key && (
+                <CheckCircle2 className="w-3.5 h-3.5 text-status-success ml-auto" />
+              )}
+            </div>
+            <p className="text-text-muted text-xs">Anthropic · claude-3.5-sonnet</p>
+            {settings?.ai_provider === 'claude' && (
+              <span className="absolute top-2 right-2 text-[10px] bg-accent-purple/20 text-accent-purple px-1.5 py-0.5 rounded-full">ACTIF</span>
+            )}
+          </button>
+
+          {/* Gemini card */}
+          <button
+            type="button"
+            onClick={() => setSelectedProvider('gemini')}
+            className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+              selectedProvider === 'gemini'
+                ? 'border-accent-blue bg-accent-blue/10'
+                : 'border-border-default hover:border-border-hover bg-bg-secondary'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 text-sm font-bold">✦</div>
+              <span className="font-semibold text-text-primary text-sm">Gemini</span>
+              {settings?.has_gemini_key && (
+                <CheckCircle2 className="w-3.5 h-3.5 text-status-success ml-auto" />
+              )}
+            </div>
+            <p className="text-text-muted text-xs">Google · gemini-1.5-flash</p>
+            {settings?.ai_provider === 'gemini' && (
+              <span className="absolute top-2 right-2 text-[10px] bg-accent-blue/20 text-accent-blue px-1.5 py-0.5 rounded-full">ACTIF</span>
+            )}
+          </button>
+        </div>
+
+        {/* Switch provider button (only if key already saved) */}
+        {settings && selectedProvider !== settings.ai_provider && (
+          ((selectedProvider === 'claude' && settings.has_claude_key) ||
+           (selectedProvider === 'gemini' && settings.has_gemini_key)) && (
+            <button
+              onClick={() => handleSwitchProvider(selectedProvider)}
+              disabled={providerLoading}
+              className="btn-secondary w-full"
+            >
+              {providerLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              Activer {selectedProvider === 'gemini' ? 'Gemini' : 'Claude'}
+            </button>
+          )
+        )}
+
+        {/* API key form */}
+        <div className="border-t border-border-default pt-4 space-y-3">
+          <label className="label">
+            {isGeminiSelected
+              ? 'Clé API Google Gemini'
+              : 'Clé API Anthropic Claude'}
+          </label>
+
+          {/* Status badge */}
+          {settings && (
+            isGeminiSelected
+              ? (settings.has_gemini_key
+                ? <div className="flex items-center gap-1.5 text-status-success text-xs"><CheckCircle2 className="w-3.5 h-3.5" />Clé Gemini configurée</div>
+                : <div className="flex items-center gap-2 bg-status-warning/10 border border-status-warning/30 rounded-lg px-3 py-2 text-status-warning text-xs"><AlertTriangle className="w-3 h-3" />Aucune clé Gemini — ajoutez-en une ci-dessous</div>)
+              : (settings.has_claude_key
+                ? <div className="flex items-center gap-1.5 text-status-success text-xs"><CheckCircle2 className="w-3.5 h-3.5" />Clé Claude configurée</div>
+                : <div className="flex items-center gap-2 bg-status-warning/10 border border-status-warning/30 rounded-lg px-3 py-2 text-status-warning text-xs"><AlertTriangle className="w-3 h-3" />Aucune clé Claude — ajoutez-en une ci-dessous</div>)
+          )}
+
+          <form onSubmit={handleApiKey} className="space-y-3">
+            <div className="relative">
+              <input
+                type={showKey ? 'text' : 'password'}
+                className="input pr-10 font-mono text-sm"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={isGeminiSelected ? 'AIzaSy...' : 'sk-ant-api03-...'}
+              />
+              <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted">
+                {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <button type="submit" disabled={keyLoading || !apiKey} className={isGeminiSelected ? 'btn-primary' : 'btn-purple'}>
+              {keyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              Sauvegarder &amp; activer {isGeminiSelected ? 'Gemini' : 'Claude'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* ─── Password ───────────────────────────────────────────────────────── */}
       <div className="card p-6 space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <Lock className="w-4 h-4 text-accent-blue" />
           <h3 className="font-semibold text-text-primary">Changer le mot de passe</h3>
         </div>
-        <p className="text-text-secondary text-xs">Le nouveau mot de passe s'applique immédiatement.</p>
+        <p className="text-text-secondary text-xs">Le nouveau mot de passe s&apos;applique immédiatement.</p>
         <form onSubmit={handlePasswordChange} className="space-y-3">
           <div>
             <label className="label">Mot de passe actuel</label>
@@ -136,49 +301,11 @@ export default function SettingsPage() {
         </form>
       </div>
 
-      {/* API Key */}
-      <div className="card p-6 space-y-4">
-        <div className="flex items-center gap-2 mb-1">
-          <Key className="w-4 h-4 text-accent-purple" />
-          <h3 className="font-semibold text-text-primary">Clé API Claude (Anthropic)</h3>
-          {settings?.has_api_key && (
-            <span className="badge-green ml-auto"><CheckCircle2 className="w-3 h-3" />Configurée</span>
-          )}
-        </div>
-        {!settings?.has_api_key && (
-          <div className="flex items-center gap-2 bg-status-warning/10 border border-status-warning/30 rounded-lg px-3 py-2 text-status-warning text-xs">
-            <AlertTriangle className="w-3 h-3" />
-            Aucune clé API configurée — l'analyse IA ne fonctionnera pas.
-          </div>
-        )}
-        <form onSubmit={handleApiKey} className="space-y-3">
-          <div>
-            <label className="label">Clé API Anthropic</label>
-            <div className="relative">
-              <input
-                type={showKey ? 'text' : 'password'}
-                className="input pr-10 font-mono text-sm"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="sk-ant-api03-..."
-              />
-              <button type="button" onClick={() => setShowKey(!showKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted">
-                {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-          <button type="submit" disabled={keyLoading || !apiKey} className="btn-purple">
-            {keyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
-            Sauvegarder la clé
-          </button>
-        </form>
-      </div>
-
-      {/* Preferences */}
+      {/* ─── Preferences ───────────────────────────────────────────────────── */}
       <div className="card p-6 space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <Globe className="w-4 h-4 text-status-success" />
-          <h3 className="font-semibold text-text-primary">Préférences d'affichage</h3>
+          <h3 className="font-semibold text-text-primary">Préférences d&apos;affichage</h3>
         </div>
         <div>
           <label className="label">Format de date</label>
@@ -194,7 +321,7 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* Danger zone */}
+      {/* ─── Danger zone ────────────────────────────────────────────────────── */}
       <div className="card p-6 border-status-error/20 space-y-3">
         <div className="flex items-center gap-2">
           <Trash2 className="w-4 h-4 text-status-error" />
