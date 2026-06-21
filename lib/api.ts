@@ -1,7 +1,16 @@
 import axios from 'axios';
 
+let apiURL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').trim();
+// Enlever les guillemets accidentels
+apiURL = apiURL.replace(/^['"]|['"]$/g, '');
+
+// Si l'URL ne commence pas par http://, https:// ou /, on rajoute https://
+if (!apiURL.startsWith('http://') && !apiURL.startsWith('https://') && !apiURL.startsWith('/')) {
+  apiURL = 'https://' + apiURL;
+}
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  baseURL: apiURL,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
