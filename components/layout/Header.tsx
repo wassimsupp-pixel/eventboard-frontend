@@ -1,28 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { User, LogOut, Bell } from 'lucide-react';
-import { logout, getCurrentUser } from '@/lib/auth';
-import toast from 'react-hot-toast';
+import { User, Bell } from 'lucide-react';
+import { getCurrentUser } from '@/lib/auth';
 
 interface HeaderProps {
   pageTitle?: string;
 }
 
 export default function Header({ pageTitle = 'Vue d\'ensemble' }: HeaderProps) {
-  const [username, setUsername] = useState('');
-  const [loggingOut, setLoggingOut] = useState(false);
+  const [username, setUsername] = useState('admin');
 
   useEffect(() => {
     getCurrentUser().then((u) => { if (u) setUsername(u.username); });
   }, []);
-
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    toast.loading('Déconnexion…', { id: 'logout' });
-    await logout();
-    toast.dismiss('logout');
-  };
 
   return (
     <header className="h-16 bg-bg-sidebar border-b border-border-default flex items-center justify-between px-6 flex-shrink-0">
@@ -49,17 +40,7 @@ export default function Header({ pageTitle = 'Vue d\'ensemble' }: HeaderProps) {
           <span className="text-sm font-medium text-text-primary">{username || '…'}</span>
         </div>
 
-        {/* Logout */}
-        <button
-          id="logout-btn"
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className="btn-ghost text-text-secondary hover:text-status-error gap-1.5 px-3 py-1.5"
-          title="Se déconnecter"
-        >
-          <LogOut className="w-4 h-4" />
-          <span className="text-sm">Déconnexion</span>
-        </button>
+        {/* Authentification désactivée */}
       </div>
     </header>
   );
